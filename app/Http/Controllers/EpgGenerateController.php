@@ -345,16 +345,25 @@ class EpgGenerateController extends Controller
                                 if ($programme['episode_num']) {
                                     $progXml .= '    <episode-num system="xmltv_ns">'.$this->escapeXml($programme['episode_num']).'</episode-num>'.PHP_EOL;
                                 }
-                                if ($programme['icon']) {
+                                // Skip Schedules Direct programme images (huge + slow/rate-capped
+                                // behind the SD image proxy -> Jellyfin PreCacheImages times out and
+                                // aborts the whole guide ingest). Downscale TMDB poster sizes
+                                // (/original|/w1280|/w780 -> /w342) for the same reason.
+                                if ($programme['icon'] && ! str_contains($programme['icon'], '/schedules-direct/')) {
                                     $icon = $logoProxyEnabled
                                         ? LogoProxyController::generateProxyUrl($programme['icon'])
                                         : $programme['icon'];
+                                    $icon = str_replace(['/original/', '/w1280/', '/w780/'], '/w342/', $icon);
                                     $progXml .= '    <icon src="'.$this->escapeXml($icon).'"/>'.PHP_EOL;
                                 }
                                 // Program artwork images (NEW)
                                 if (! empty($programme['images'] ?? null) && is_array($programme['images'])) {
                                     foreach ($programme['images'] as $image) {
                                         $rawUrl = $image['url'] ?? '';
+                                        if ($rawUrl && str_contains($rawUrl, '/schedules-direct/')) {
+                                            continue;
+                                        }
+                                        $rawUrl = str_replace(['/original/', '/w1280/', '/w780/'], '/w342/', $rawUrl);
                                         $proxiedUrl = $logoProxyEnabled && $rawUrl
                                             ? LogoProxyController::generateProxyUrl($rawUrl)
                                             : $rawUrl;
